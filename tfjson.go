@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -41,7 +42,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 	fmt.Println(j)
 }
 
@@ -61,7 +61,7 @@ func tfjson(planfile string) (string, error) {
 
 	diff := output{}
 	for _, v := range plan.Diff.Modules {
-		convertModuleDiff(diff, v)
+		convertModuleDiff(diff, v, plan)
 	}
 
 	j, err := json.MarshalIndent(diff, "", "    ")
@@ -89,17 +89,41 @@ func insert(out output, path []string, key string, value interface{}) {
 	out[key] = value
 }
 
-func convertModuleDiff(out output, diff *terraform.ModuleDiff) {
+func convertModuleDiff(out output, diff *terraform.ModuleDiff, plan *terraform.Plan) {
 	insert(out, diff.Path, "destroy", diff.Destroy)
 	for k, v := range diff.Resources {
-		convertInstanceDiff(out, append(diff.Path, k), v)
+		convertInstanceDiff(out, append(diff.Path, k), v, plan)
 	}
 }
 
-func convertInstanceDiff(out output, path []string, diff *terraform.InstanceDiff) {
+func convertInstanceDiff(out output, path []string, diff *terraform.InstanceDiff, plan *terraform.Plan) {
+	modulePath := path[:len(path)-1]
+	instanceName := path[len(path)-1]
 	insert(out, path, "destroy", diff.Destroy)
 	insert(out, path, "destroy_tainted", diff.DestroyTainted)
+	for k, v := range plan.State.Modules {
+		if reflect.DeepEqual(v.Path, modulePath) {
+			for n, o := range v.Resources {
+				if n == instanceName {
+					for i := range o.Primary.Attributes {
+						insert(out, append(path, "computed"), i, false)
+					}
+				}
+			}
+		}
+	}
 	for k, v := range diff.Attributes {
-		insert(out, path, k, v.New)
+		insert(out, append(path, "new"), k, v.New)
+		insert(out, append(path, "old"), k, v.Old)
+		insert(out, append(path, "computed"), k, v.NewComputed)
+	}
+	if val, ok := diff.Attributes["id"]; ok {
+		if val.RequiresNew {
+			insert(out, path, "requires_new", val.RequiresNew)
+		} else {
+			insert(out, path, "requires_new", false)
+		}
+	} else {
+		insert(out, path, "requires_new", false)
 	}
 }
