@@ -59,7 +59,21 @@ func tfjson(planfile string) (string, error) {
 		return "", err
 	}
 
+	resourceDefaults := map[string]bool{
+		"destroy": false,
+		"destroy_tainted": false,
+		"requires_new": false,
+		"computed": false,
+		"new": false,
+		"old": false,
+	}
+
 	diff := output{}
+	for _, v := range plan.State.Modules {
+		for n, _ := range v.Resources {
+			insert(diff, v.Path, n, resourceDefaults);
+		}
+	}
 	for _, v := range plan.Diff.Modules {
 		convertModuleDiff(diff, v, plan)
 	}
