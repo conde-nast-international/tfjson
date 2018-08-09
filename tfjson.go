@@ -101,7 +101,7 @@ func convertInstanceDiff(out output, path []string, diff *terraform.InstanceDiff
 	instanceName := path[len(path)-1]
 	insert(out, path, "destroy", diff.Destroy)
 	insert(out, path, "destroy_tainted", diff.DestroyTainted)
-	for k, v := range plan.State.Modules {
+	for _, v := range plan.State.Modules {
 		if reflect.DeepEqual(v.Path, modulePath) {
 			for n, o := range v.Resources {
 				if n == instanceName {
