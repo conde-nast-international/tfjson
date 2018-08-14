@@ -18,9 +18,12 @@ if [ "${OS}" == "windows" ]; then
   EXT=".exe";
 fi;
 
+export CGO_ENABLED=0;
+export GO_ARGS="-a -ldflags='-extldflags=-static'";
+
 export GOOS=${OS};
 
 export GOARCH=386
-go build -o build/tfjson-${GOOS}-${GOARCH}-${GIT_HASH}${EXT} .
+go build ${GO_ARGS} -o build/tfjson-${GOOS}-${GOARCH}-${GIT_HASH}${EXT} .
 export GOARCH=amd64
-go build -o build/tfjson-${GOOS}-${GOARCH}-${GIT_HASH}${EXT} .
+go build ${GO_ARGS} -o build/tfjson-${GOOS}-${GOARCH}-${GIT_HASH}${EXT} .
